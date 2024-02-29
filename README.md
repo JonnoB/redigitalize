@@ -1,8 +1,11 @@
-# redigitalize
+# Improving Accessibility to 19th-Century Newspapers with Large Language Models
 
-This repo is for temporarily holding the plans and ideas around the OCR recovery and re-digitalisation projects I have. Hopefully this will be replaced with individual repos in due course
+This repo is part of a project to help increase access to the 19th Century digital archive the 19th Century serials edition.
 
 
-# Useful links
+# Data
 
-- IPTC media topics classification. This hierarchical structure can be applied to the datasets https://cv.iptc.org/newscodes/mediatopic/?lang=en-GB
+The main dataset for the project is the 19th Century Serials edition website Postgres dump file available from the King's College Figshare at xxxx
+
+
+# Citing this project
