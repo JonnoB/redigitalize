@@ -8,7 +8,7 @@ Generally it is supposed to be functions that cause the text to be manipulated w
 from helper_file import *
 
 # Define a function to process each row
-def process_row(row, system_message_template, rate_limiter, engine="gpt-3.5-turbo"):
+def process_row(row, system_message_template, rate_limiter, engine="gpt-3.5-turbo", alt_endpoint = None):
     # Extract necessary information from the row
     title = row['title']
     date = row['issue_date']
@@ -18,11 +18,11 @@ def process_row(row, system_message_template, rate_limiter, engine="gpt-3.5-turb
     system_message = system_message_template.format(title=title, date=date)
     
     # Assuming get_model_response is a function that sends the content and system message to an AI model
-    response = get_model_response(content, system_message, rate_limiter, engine=engine).choices[0].message.content
+    response = get_model_response(content, system_message, rate_limiter, engine=engine,  alt_endpoint = None).choices[0].message.content
     return response
 
 
-def perform_capoc(df, corrected_folder , system_message_template, engine, data_path='./data'):
+def perform_capoc(df, corrected_folder , system_message_template, engine, data_path='./data',  alt_endpoint = None):
 
     """
     Performs Context Aware Post-Ocr Correcetion on a dataframe of text. 
@@ -76,7 +76,7 @@ def perform_capoc(df, corrected_folder , system_message_template, engine, data_p
         if row['id'] not in processed_ids:
             start_time = time.time()  # Begin measuring time
 
-            corrected_ocr = process_row(row, system_message_template, rate_limiter, engine=engine)  # Assuming process_row is defined
+            corrected_ocr = process_row(row, system_message_template, rate_limiter, engine=engine,  alt_endpoint = None)  # Assuming process_row is defined
 
             end_time = time.time()  # Stop measuring time
             elapsed_time = round(end_time - start_time)  # Time to the nearest second
@@ -124,12 +124,13 @@ def run_capoc_tasks(dev_data, configurations):
         system_message = config['system_message']
         engine = config['engine']
         data_path = config.get('data_path', './data')  # Provide a default value if not specified
-        
+        alt_endpoint = config.get(None)
+
         # Call perform_capoc with the current configuration
-        perform_capoc(dev_data, corrected_folder, system_message, engine, data_path)
+        perform_capoc(dev_data, corrected_folder, system_message, engine, data_path,  alt_endpoint = None)
 
 
-def classify_genre_row(row, rate_limiter, engine="gpt-3.5-turbo-0125"):
+def classify_genre_row(row, rate_limiter, engine="gpt-3.5-turbo-0125",  alt_endpoint = None):
     
     enc = tiktoken.encoding_for_model(engine)
     title = row['title']
@@ -170,12 +171,12 @@ def classify_genre_row(row, rate_limiter, engine="gpt-3.5-turbo-0125"):
                     """
     
 
-    response = get_model_response(prompt, system_message, rate_limiter, engine=engine).choices[0].message.content
+    response = get_model_response(prompt, system_message, rate_limiter, engine=engine,  alt_endpoint = None).choices[0].message.content
 
     return response
 
 
-def classify_topics_row(row, rate_limiter, engine="gpt-3.5-turbo-0125"):
+def classify_topics_row(row, rate_limiter, engine="gpt-3.5-turbo-0125",  alt_endpoint = None):
     
     enc = tiktoken.encoding_for_model(engine)
     content = row['gpt4_response']
@@ -224,6 +225,6 @@ def classify_topics_row(row, rate_limiter, engine="gpt-3.5-turbo-0125"):
                     """
     
 
-    response = get_model_response(prompt, system_message, rate_limiter, engine=engine).choices[0].message.content
+    response = get_model_response(prompt, system_message, rate_limiter, engine=engine,  alt_endpoint = None).choices[0].message.content
 
     return response

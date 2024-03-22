@@ -128,7 +128,7 @@ class RateLimiter:
     
 
 
-def get_model_response(prompt, system_message, rate_limiter, engine="gpt-3.5-turbo"):
+def get_model_response(prompt, system_message, rate_limiter, engine="gpt-3.5-turbo", alt_endpoint = None):
     """
     Sends a prompt to the GPT-3.5 API and retrieves the model's response, 
     while managing the rate of API requests using a provided rate limiter.
@@ -142,6 +142,8 @@ def get_model_response(prompt, system_message, rate_limiter, engine="gpt-3.5-tur
         system_message (str): A system-generated message that precedes the user's prompt.
         rate_limiter (RateLimiter): An instance of the RateLimiter class to manage API request frequency.
         engine (str, optional): The model engine to use. Defaults to "gpt-3.5-turbo".
+        al_endpoint (dict, optional): If a non OpenAI model is being used such as Hugginface, Groq, Anthropic, use a dict as 
+        {'base_url':"<ENDPOINT_URL>" + "/v1/", 'api_key':"<API_TOKEN>"}
 
     Returns:
         str: The trimmed content of the model's response if successful, None otherwise.
@@ -159,7 +161,15 @@ def get_model_response(prompt, system_message, rate_limiter, engine="gpt-3.5-tur
     #create the encoding object, this allows us to acurrately find the total number of tokens and ensure we don't go over the rate limit
     #There may be a better way of doing this
     enc = tiktoken.encoding_for_model(engine)
-    client = OpenAI()
+
+    if alt_endpoint:
+        OpenAI(
+                base_url = alt_endpoint['base_url'], 
+                api_key = alt_endpoint['api_key'],  
+                )   
+    else:    
+        client = OpenAI() #default is to instantiate using open url endpoint and api key
+    
     messages = [
         {"role": "system", "content": system_message},
         {"role": "user", "content": prompt}
@@ -176,7 +186,7 @@ def get_model_response(prompt, system_message, rate_limiter, engine="gpt-3.5-tur
             response = client.chat.completions.create(
                 model=engine,
                 messages=messages,
-                max_tokens=2000,
+                max_tokens=4000, # should this be an argument?
                 temperature=0.2,
                 top_p=0.9,
             )
