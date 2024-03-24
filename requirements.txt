@@ -9,3 +9,4 @@ pyarrow #will soon become a required dependency of pandas. really useful as you 
 tiktoken
 evaluate
 jiwer
+python-dotenv

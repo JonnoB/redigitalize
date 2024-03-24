@@ -16,9 +16,9 @@ def process_row(row, system_message_template, rate_limiter, engine="gpt-3.5-turb
     
     # Format the system message with the actual title and date
     system_message = system_message_template.format(title=title, date=date)
-    
+
     # Assuming get_model_response is a function that sends the content and system message to an AI model
-    response = get_model_response(content, system_message, rate_limiter, engine=engine,  alt_endpoint = None).choices[0].message.content
+    response = get_model_response(content, system_message, rate_limiter, engine=engine,  alt_endpoint = alt_endpoint).choices[0].message.content
     return response
 
 
@@ -76,7 +76,7 @@ def perform_capoc(df, corrected_folder , system_message_template, engine, data_p
         if row['id'] not in processed_ids:
             start_time = time.time()  # Begin measuring time
 
-            corrected_ocr = process_row(row, system_message_template, rate_limiter, engine=engine,  alt_endpoint = None)  # Assuming process_row is defined
+            corrected_ocr = process_row(row, system_message_template, rate_limiter, engine=engine,  alt_endpoint = alt_endpoint)  # Assuming process_row is defined
 
             end_time = time.time()  # Stop measuring time
             elapsed_time = round(end_time - start_time)  # Time to the nearest second
@@ -124,10 +124,10 @@ def run_capoc_tasks(dev_data, configurations):
         system_message = config['system_message']
         engine = config['engine']
         data_path = config.get('data_path', './data')  # Provide a default value if not specified
-        alt_endpoint = config.get(None)
+        alt_endpoint = config.get('alt_endpoint', None)
 
         # Call perform_capoc with the current configuration
-        perform_capoc(dev_data, corrected_folder, system_message, engine, data_path,  alt_endpoint = None)
+        perform_capoc(dev_data, corrected_folder, system_message, engine, data_path,  alt_endpoint)
 
 
 def classify_genre_row(row, rate_limiter, engine="gpt-3.5-turbo-0125",  alt_endpoint = None):

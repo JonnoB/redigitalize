@@ -160,14 +160,17 @@ def get_model_response(prompt, system_message, rate_limiter, engine="gpt-3.5-tur
     """
     #create the encoding object, this allows us to acurrately find the total number of tokens and ensure we don't go over the rate limit
     #There may be a better way of doing this
-    enc = tiktoken.encoding_for_model(engine)
-
+    #enc = tiktoken.encoding_for_model(engine)
+    enc = tiktoken.encoding_for_model("gpt-3.5-turbo") #counting is all done using bytpair
+    #print(alt_endpoint)
     if alt_endpoint:
-        OpenAI(
+  
+        client =  OpenAI(
                 base_url = alt_endpoint['base_url'], 
                 api_key = alt_endpoint['api_key'],  
                 )   
     else:    
+
         client = OpenAI() #default is to instantiate using open url endpoint and api key
     
     messages = [
