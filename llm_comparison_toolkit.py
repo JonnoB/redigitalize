@@ -1,18 +1,48 @@
+"""
+Module: llm_comparison_toolkit
+
+This module provides functionality for making API calls to Large Language Models (LLMs) using flexible prompt and system message templates. It includes classes and functions to manage rate limiting, create configuration dictionaries, make API calls from DataFrame rows, and compare different request configurations.
+
+Classes:
+- RateLimiter: Implements rate limiting functionality to ensure the number of actions (or 'tokens') does not exceed a specified maximum limit per minute.
+
+Functions:
+- create_config_dict_func: Creates a configuration dictionary for use with functions that make API calls to an LLM.
+- make_api_call_from_dataframe_row: Makes an API call to an LLM using a configuration dictionary and a single row from a pandas DataFrame.
+- use_df_to_call_llm_api: Performs multiple API calls to an LLM using a flexible prompt and system message template, saves the results as files in a subfolder of the 'corrected' folder.
+- compare_request_configurations: Compares different prompt/system message/LLM configurations using a DataFrame as the basic data source.
+- get_response_openai: Sends a prompt and system message to the OpenAI API, while managing the rate of API requests using a provided rate limiter.
+- get_response_anthropic: Sends a prompt along with a system-generated message to the Anthropic API, managing the rate of requests with a provided rate limiter.
+
+The module is designed to be flexible and agnostic to the specific LLM being used, allowing for testing a range of prompt formats and structures across different LLMs and facilitating comparisons among them.
+
+Dependencies:
+- openai
+- pandas
+- numpy
+- os
+- time
+- tiktoken
+- re
+- anthropic
+- collections
+- inspect
+- typing
+
+Note: Calling an LLM requires an api key, this should be set up following the documentation for the default setting.
+"""
+
 import openai
 #import config  # Import your config.py file this contains you openai api key
 import pandas as pd
 import numpy as np
 import os
 import time
-from datetime import datetime, timedelta
 import tiktoken
 import re
-import difflib
 from openai import OpenAI
 import anthropic
-# Set up the OpenAI API key from the .env file, this allows you to keep your key secret and not expose on github
-#have the api key in like the below
-#OPENAI_API_KEY = "my api key"
+
 
 import time
 from collections import deque
@@ -90,6 +120,7 @@ class RateLimiter:
 def create_config_dict_func(
     get_response_func: Callable,
     rate_limiter: RateLimiter,
+    engine: str,
     system_message_template: Optional[str] = None,
     prompt_template: str = "{text}", 
     additional_args: Optional[dict] = None
@@ -116,6 +147,7 @@ def create_config_dict_func(
     config_dict = {
         "get_response_func": get_response_func,
         "rate_limiter": rate_limiter,
+        "engine": engine,
         "system_message_template": system_message_template,
         "prompt_template": prompt_template
     }
@@ -158,23 +190,24 @@ def make_api_call_from_dataframe_row(row, config_dict):
     config_dict['system_message']  = config_dict['system_message_template'].format(**row_dict)
 
     #take out the model object
-    get_model_response_func = config_dict['get_model_response_func']
+    get_response_func = config_dict['get_response_func']
 
     #extract the arguments from the function
-    arguments = [param.name for param in inspect.signature(get_model_response_func).parameters.values()]
+    arguments = [param.name for param in inspect.signature(get_response_func).parameters.values()]
 
     #create new dictionary that only includes the arguments of the api caller function
     config_dict2 = {key: config_dict[key] for key in arguments if key in config_dict}
 
     #unpack the dictionary and unpack the dictionary in the function
-    response = get_model_response_func(**config_dict2)
+    response = get_response_func(**config_dict2)
     return response
 
 
-def use_df_to_call_llm_api(config_dict, df, corrected_folder , data_path='./data'):
+def use_df_to_call_llm_api(config_dict, df, response_name , folder_path='./data'):
 
     """
-    Performs multiple api calls to an LLM using a flexible prompt and system message template.
+    Performs multiple api calls to an LLM using a flexible prompt and system message template, saves the results as files in a subfolder of the 
+    'corrected' folder.
     The function is really supposed to be used to generate a large quantity of results in order to create comparison data between LLM's and prompts.
 
     Parameters:
@@ -182,7 +215,7 @@ def use_df_to_call_llm_api(config_dict, df, corrected_folder , data_path='./data
         This dictionary is likely created by the 'create_config_dict_func' function.
     - df (pandas.DataFrame): DataFrame containing OCR data to be processed. Required columns are 'title', 
       'issue_date', 'content_html', 'id', and others relevant for file naming.
-    - corrected_folder (str): Descriptive name for the data subset, influencing subfolder naming.
+    - response_name (str): Descriptive name for the response, joined with the engine to create response folder.
     - engine (str, optional): The processing engine used for text recovery. Defaults to "gpt-3.5-turbo".
     - folder_path (str, optional): Project base data folder for recovered text, Defaults to './data'
 
@@ -193,7 +226,7 @@ def use_df_to_call_llm_api(config_dict, df, corrected_folder , data_path='./data
 
     """
     # Create new subfolder path
-    new_subfolder = os.path.join(data_path, f'{corrected_folder}_{config_dict['engine']}')
+    new_subfolder = os.path.join(folder_path, f"{response_name}_{config_dict['engine']}")
     if not os.path.exists(new_subfolder):
         os.makedirs(new_subfolder)
 
@@ -210,7 +243,7 @@ def use_df_to_call_llm_api(config_dict, df, corrected_folder , data_path='./data
     processed_ids = set(times_df['id'])
 
     # List to accumulate new records
-    new_records = []
+    #new_records = []
 
     for index, row in df.iterrows():
         if row['id'] not in processed_ids:
@@ -229,14 +262,40 @@ def use_df_to_call_llm_api(config_dict, df, corrected_folder , data_path='./data
                 file.write(corrected_ocr)
             
             # Append new record to the list
-            new_records.append({'id': row['id'], 'time': elapsed_time})
+            new_records = {'id': row['id'], 'time': elapsed_time}
+
+            new_record_df = pd.DataFrame([new_records], index = [0])
             
-            times_df = pd.concat([times_df, pd.DataFrame(new_records)], ignore_index=True)
+            if times_df.empty:
+                times_df = new_record_df
+            else:
+                times_df = pd.concat([times_df, new_record_df], ignore_index=True)
+            
             times_df.to_csv(times_csv_path, index=False)
 
             
             # Add the processed ID to the set
             processed_ids.add(row['id'])
+
+def compare_request_configurations(df, configurations, folder_path = './data'):
+    """
+    Used to compare different prompt/system message/llm configurations using a dataframe as the basic datasource
+
+    The function runs various configurations of prompt, system message and LLM engine and saves the results in a structured,
+    folder. Is designed to help compare and tune approaches.
+
+    Parameters:
+    - df (pandas.DataFrame): The DataFrame containing base data to be processed.
+    - configurations (list of dicts): A list where each dict contains the parameters for a
+      `use_df_to_call_llm_api` call, see the function `create_config_dict_func` for how to create a configuration dictionary.
+    """
+    for config_dict in configurations:
+        
+        response_name = config_dict['response_name']
+
+        # Call perform_capoc with the current configuration
+        use_df_to_call_llm_api(config_dict, df, response_name , folder_path)
+
 
 def get_response_openai(prompt, system_message, rate_limiter, engine="gpt-3.5-turbo", max_tokens = 4000, alt_endpoint = None):
     """
