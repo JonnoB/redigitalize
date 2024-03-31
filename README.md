@@ -14,14 +14,18 @@ The project takes and SQL database of OCR data for a variety of publications.
     - a dev set 
     - a test set of 100 articles and 125 adverts
     - a silver train set of a mixture 1000 adverts and articles
-- Checks 8 different prompt models plus 2 prompts from Boros etal 2024
+- Checks 8 different prompt models plus 2 prompts 
 - Using the the top performing prompt, compares 7 models using two prompt and OCR text combinations
 - Takes the top performing model and prompt arrangement, and performs post-OCR correction on the entire dataset 
 
 ## Article labelling
 
 The below process is used to label the articles into two different class types; 
-- Genre, which describes if the text is and article, advert, editorial, etc. 
+- Genre, which describes if the text is 
+    - article 
+    - advert 
+    - editorial
+    - etc. 
 - Subjec: Using the IPTC NewsCodes schema
 
 The process is as follows
