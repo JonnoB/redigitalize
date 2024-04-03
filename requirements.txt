@@ -10,3 +10,4 @@ tiktoken
 evaluate
 jiwer
 python-dotenv
+PyPDF2
