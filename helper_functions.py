@@ -13,6 +13,44 @@ import pandas as pd
 ##
 ##
 
+def stratified_target_sampling(df, group_col, value_col, target_value):
+    """
+    Perform stratified random sampling from different groups in a DataFrame until
+    the sum of the total value of the sampled groups exceeds a target value.
+
+    Sampling stops for a group when adding another randomly selected row would
+    cause the total value sum of that group's sampled rows to exceed the target value.
+
+    Args:
+        df (pandas.DataFrame): The input DataFrame containing the data.
+        group_col (str): The column name indicating the group of each observation.
+        value_col (str): The column name containing the value of each observation.
+        target_value (float): The target value that, once exceeded, stops further sampling from a group.
+
+    Returns:
+        pandas.DataFrame: A new DataFrame containing the balanced sampled data.
+    """
+    sampled_indices = []
+
+    for group, group_df in df.groupby(group_col):
+        current_sum = 0
+        # Shuffle the DataFrame to ensure random ordering. Keep the original index.
+        shuffled_df = group_df.sample(frac=1)
+        
+        for index, row in shuffled_df.iterrows():
+            if current_sum + row[value_col] > target_value:
+                # Stop if adding this row would exceed the target value
+                break
+            current_sum += row[value_col]
+            # Append the index of the original DataFrame
+            sampled_indices.append(index)
+
+    # Construct the DataFrame from the chosen indices using the original DataFrame's indices
+    sampled_df = df.loc[sampled_indices]
+
+    return sampled_df
+
+
 def identify_file(folder, date):
     """
     Identify the largest file in a given folder that contains a specific date string in its name.
