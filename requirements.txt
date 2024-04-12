@@ -11,3 +11,16 @@ evaluate
 jiwer
 python-dotenv
 PyPDF2
+
+##
+## For the fine tuning
+##
+
+transformers
+trl
+accelerate
+#torch #installing torch can cause issues with some of the sub modules relating to audio, which are not necessary for this project
+# tweak as you need to
+bitsandbytes
+peft
+datasets
