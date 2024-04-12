@@ -4,6 +4,11 @@
 import os 
 import PyPDF2
 import pandas as pd
+from nervaluate import Evaluator
+from collections import Counter
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 
 
@@ -220,3 +225,115 @@ def files_to_df_func(folder_path):
     df['issue'] = df['file_name'].str.extract(r'issue_(.*?)_page', expand=False)
 
     return df
+
+def evaluate_ner(df, truth, predictions):
+    """
+    Evaluate the Named Entity Recognition (NER) predictions against the ground truth labels
+    contained in a dataframe. This function computes the performance metrics for NER tasks,
+    such as precision, recall, and F1-score, across multiple entity types.
+
+    Parameters:
+    - df (pandas.DataFrame): The dataframe containing the NER data. Must include columns
+                             specified by the `truth` and `predictions` parameters.
+    - truth (str): The column name in `df` that contains the ground truth annotations. Each
+                   entry in this column should be a list of dictionaries, where each dictionary
+                   represents an entity with keys 'entity', 'start', and 'end'.
+    - predictions (str): The column name in `df` that contains the predicted annotations. Each
+                         entry must follow the same format as the `truth` column.
+
+    Returns:
+    - tuple: A tuple containing two elements:
+        1. results (dict): A dictionary with overall metrics such as overall precision, recall, and F1-score.
+        2. results_by_tag (dict): A dictionary with metrics broken down by entity type.
+
+    Raises:
+    - KeyError: If the `truth` or `predictions` columns are not present in the dataframe.
+    - ValueError: If any of the entries in `truth` or `predictions` columns are not in the expected list of
+                  dictionaries format with keys 'entity', 'start', and 'end'.
+
+    Example:
+    - Given a DataFrame `df` with columns "True Entities" and "Predicted Entities" where each
+      entry is a list of dictionaries representing entities:
+        >>> results, detailed_results = evaluate_ner(df, "True Entities", "Predicted Entities")
+        >>> print(results)
+        >>> print(detailed_results)
+    """
+    
+    ground_truth = df[truth].tolist()
+    predicted = df[predictions].tolist()
+
+    ground_truth_labels = []
+    predicted_labels = []
+    for sent_ground_truth, sent_predicted in zip(ground_truth, predicted):
+        if sent_ground_truth:
+            ground_truth_labels.append([{
+                'label': entity['entity'],
+                'start': entity['start'],
+                'end': entity['end']
+            } for entity in sent_ground_truth])
+        else:
+            ground_truth_labels.append([])
+
+        if sent_predicted:
+            predicted_labels.append([{
+                'label': entity['entity'],
+                'start': entity['start'],
+                'end': entity['end']
+            } for entity in sent_predicted])
+        else:
+            predicted_labels.append([])
+
+    # Create an Evaluator object with all entity types
+    tags = ['B-LOC', 'I-LOC', 'B-MISC', 'I-MISC', 'B-ORG', 'I-ORG', 'B-PER', 'I-PER']
+    evaluator = Evaluator(ground_truth_labels, predicted_labels, tags=tags)
+
+    # Calculate evaluation metrics
+    results, results_by_tag = evaluator.evaluate()
+    return results, results_by_tag
+
+
+def calculate_entity_similarity(predicted_entities, ground_truth_entities):
+
+    """
+    Calculate the cosine similarity between the frequency vectors of entities extracted from predicted and ground truth data.
+
+    This function first extracts the 'word' element from each entity in the predicted and ground truth entity lists. It then counts the occurrences of each unique word in both lists and constructs vectors from these counts. The cosine similarity between these two vectors is computed to measure how similar the entities are in terms of their content, regardless of their order or exact match.
+
+    Args:
+        predicted_entities (list of dict): A list of dictionaries where each dictionary represents an entity with at least the key 'word'.
+        ground_truth_entities (list of dict): A list of dictionaries similar to `predicted_entities`, representing the ground truth for comparison.
+
+    Returns:
+        float: The cosine similarity between the frequency vectors of the predicted and ground truth entities.
+
+    Example:
+        predicted_entities = [
+            {'entity': 'B-ORG', 'score': 0.6054342, 'index': 31, 'word': 'Revenge', 'start': 123, 'end': 130},
+            {'entity': 'B-MISC', 'score': 0.50727797, 'index': 85, 'word': 'San', 'start': 362, 'end': 365}
+        ]
+        ground_truth_entities = [
+            {'entity': 'B-ORG', 'score': 1.0, 'index': 31, 'word': 'Revenge', 'start': 123, 'end': 130},
+            {'entity': 'B-MISC', 'score': 1.0, 'index': 85, 'word': 'Francisco', 'start': 362, 'end': 371}
+        ]
+        similarity = calculate_entity_similarity(predicted_entities, ground_truth_entities)
+        print(f"Entity similarity: {similarity:.2f}")
+    """
+    # Extract words from predicted and ground truth entities
+    predicted_words = [entity['word'] for entity in predicted_entities]
+    ground_truth_words = [entity['word'] for entity in ground_truth_entities]
+    
+    # Count occurrences of words in predicted and ground truth entities
+    predicted_counts = Counter(predicted_words)
+    ground_truth_counts = Counter(ground_truth_words)
+    
+    # Create a list of all unique words present in either predicted or ground truth entities
+    all_words = list(set(predicted_words + ground_truth_words))
+    
+    # Create vectors based on the counts of words
+    predicted_vector = np.array([predicted_counts[word] for word in all_words])
+    ground_truth_vector = np.array([ground_truth_counts[word] for word in all_words])
+    
+    # Compute cosine similarity between the vectors
+    similarity = cosine_similarity([predicted_vector], [ground_truth_vector])[0][0]
+    
+    return similarity
